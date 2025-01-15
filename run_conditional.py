@@ -23,6 +23,30 @@ def main(args):
     # model name and directory
     name = create_model_name_and_dir(args)
 
+        # After the training loop, save the final model (and optimizer if needed)
+
+    def save_final_model(model, optimizer, log_dir):
+        # Ensure the directory exists
+        os.makedirs(log_dir, exist_ok=True)  # This will create the directory if it doesn't exist
+        
+        # Use os.path.join to handle path separation correctly
+        final_model_path = os.path.join(log_dir, 'final_model.pth')
+        final_optimizer_path = os.path.join(log_dir, 'final_optimizer.pth')
+
+        # Save the model state_dict
+        try:
+            torch.save(model.state_dict(), final_model_path)
+            print(f"Final model saved to {final_model_path}")
+        except Exception as e:
+            print(f"Error saving model: {e}")
+
+        # Optionally, save the optimizer state_dict
+        try:
+            torch.save(optimizer.state_dict(), final_optimizer_path)
+            print(f"Final optimizer state saved to {final_optimizer_path}")
+        except Exception as e:
+            print(f"Error saving optimizer state: {e}")
+
     # log args
     logging.info(args)
 
@@ -54,6 +78,11 @@ def main(args):
         # print model parameters
         print_model_params(logger, model)
 
+        # --- save initial model ---
+        save_final_model(model, optimizer, args.log_dir)
+
+        sys.exit()
+
         # --- train model ---
         logging.info(f"Continuing training loop from epoch {init_epoch}.")
         best_score = float('inf')  # marginal score for long-range metrics, dice score for short-range metrics
@@ -82,6 +111,8 @@ def main(args):
                 optimizer.step()
                 model.on_train_batch_end()
 
+                break
+
             # --- evaluation loop ---
             if epoch % args.logging_iter == 0:
                 mse = 0
@@ -109,6 +140,8 @@ def main(args):
                             mse += mse_mean.item()
                             mae += mae_mean.item()
 
+                            break
+
                 scores = {'mse': mse / (idx + 1), 'mae': mae / (idx + 1)}
                 for key, value in scores.items():
                     logger.log(f'test/{key}', value, epoch)
@@ -119,8 +152,12 @@ def main(args):
                     best_score = curr_score
                     ema_model = model.model_ema if args.ema else None
                     save_checkpoint(args.log_dir, state, epoch, ema_model)
-
+            break
+        
+        save_final_model(model, optimizer, args.log_dir)
         logging.info("Training is complete")
+
+
 
 
 if __name__ == '__main__':
