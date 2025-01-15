@@ -14,11 +14,10 @@ embedding: 8
 img_resolution: 8
 input_channels: 28
 unet_channels: 128
-ch_mult: [1,2,2,4]
-attn_resolution: [8,4,2]
+ch_mult: [1, 2, 2, 4]
+attn_resolution: [8, 4, 2]
 diffusion_steps: 18
 ema: true
 ema_warmup: 100
 # logging:
 logging_iter: 100
-
