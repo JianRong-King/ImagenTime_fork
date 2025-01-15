@@ -78,10 +78,17 @@ class DelayEmbedder(TsImgEmbedder):
             self.seq_len = length
 
         x_image = torch.zeros((batch, features, self.embedding, self.embedding))
+        # print("\nimage shape")
+        # print(x_image.shape)
+        # print("seqleng " + str(self.seq_len))
+
+        print(pad)
         i = 0
         while (i * self.delay + self.embedding) <= self.seq_len:
             start = i * self.delay
             end = start + self.embedding
+            # print(i)
+            # print(i * self.delay + self.embedding)
             x_image[:, :, :, i] = signal[:, start:end].permute(0, 2, 1)
             i += 1
 
@@ -120,7 +127,9 @@ class DelayEmbedder(TsImgEmbedder):
         reconstructed_x_time_series[:, :, start:] = img_non_square[:, :, :end, cols - 1]
         reconstructed_x_time_series = reconstructed_x_time_series.permute(0, 2, 1)
 
-        return reconstructed_x_time_series.cuda()
+        # return reconstructed_x_time_series.cuda()
+        return  reconstructed_x_time_series.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
 
 
 class STFTEmbedder(TsImgEmbedder):
@@ -158,12 +167,33 @@ class STFTEmbedder(TsImgEmbedder):
         data = torch.permute(data, (0, 2, 1))  # we permute to match requirements of torchaudio.transforms.Spectrogram
         spec = T.Spectrogram(n_fft=self.n_fft, hop_length=self.hop_length, center=True, power=None).to(data.device)
         transformed_data = spec(data)
-        return transformed_data.real, transformed_data.imag
+        # return transformed_data.real, transformed_data.imag
 
+        real, imag = transformed_data.real, transformed_data.imag
+        target_time_dim = 32
+        if real.shape[-1] > target_time_dim:
+            real = real[..., :target_time_dim]
+            imag = imag[..., :target_time_dim]
+        return real, imag
+    
     def ts_to_img(self, signal):
         assert self.min_real is not None, "use init_norm_args() to compute scaling arguments"
         # convert to complex spectrogram
         real, imag = self.stft_transform(signal)
+        # from x, 1, 32, 33 to last dimention both 32
+
+
+        # target_time_dim = 32
+        # if real.shape[-1] > target_time_dim:
+        #     real = real[..., :target_time_dim]
+        #     imag = imag[..., :target_time_dim]
+
+
+        print("real shape:", real.shape) # fred [32, 1, 32, 32])
+        print("imag shape:", imag.shape) # fred [32, 1, 32, 32])
+
+
+
         # MinMax scaling
         real = (MinMaxArgs(real, self.min_real.to(self.device), self.max_real.to(self.device)) - 0.5) * 2
         imag = (MinMaxArgs(imag, self.min_imag.to(self.device), self.max_imag.to(self.device)) - 0.5) * 2
@@ -184,6 +214,12 @@ class STFTEmbedder(TsImgEmbedder):
                             dim=1)  # x_image.shape[1] is twice the size of the original dim
 
         real, imag = split[0], split[1]
+        
+        print("real shape:", real.shape)
+        print("imag shape:", imag.shape)
+        print("max_real shape:", max_real.shape)
+        print("min_real shape:", min_real.shape)
+
         unnormalized_real = ((real / 2) + 0.5) * (max_real - min_real) + min_real
         unnormalized_imag = ((imag / 2) + 0.5) * (max_imag - min_imag) + min_imag
         unnormalized_stft = torch.complex(unnormalized_real, unnormalized_imag)
