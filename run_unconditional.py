@@ -21,6 +21,12 @@ def main(args):
     # model name and directory
     name = create_model_name_and_dir(args)
 
+
+    # print(args.deterministic)
+  
+    # sys.exit()
+
+    
     # log args
     logging.info(args)
 
@@ -36,9 +42,14 @@ def main(args):
         train_loader, test_loader = gen_dataloader(args)
         logging.info(args.dataset + ' dataset is ready.')
 
+        
+
+
         model = ImagenTime(args=args, device=args.device).to(args.device)
+
         if args.use_stft:
             model.init_stft_embedder(train_loader)
+
 
         # optimizer
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
@@ -64,7 +75,20 @@ def main(args):
             # --- train loop ---
             for i, data in enumerate(train_loader, 1):
                 x_ts = data[0].to(args.device)
+                # print("x_ts shape: ", x_ts.shape)
+                # print(x_ts[0][0])
                 x_img = model.ts_to_img(x_ts)
+                print(x_img.shape)
+                sys.exit()
+
+                # sys.exit()
+
+                # break
+
+                x_ts = model.img_to_ts(x_img)
+            # print(x_ts.shape)
+
+            # sys.exit()
                 optimizer.zero_grad()
                 loss = model.loss_fn(x_img)
                 if len(loss) == 2:
@@ -76,6 +100,9 @@ def main(args):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
                 optimizer.step()
                 model.on_train_batch_end()
+
+                # break
+            
 
             # --- evaluation loop ---
             if epoch % args.logging_iter == 0:
@@ -98,6 +125,11 @@ def main(args):
 
                             gen_sig.append(x_ts.detach().cpu().numpy())
                             real_sig.append(data[0].detach().cpu().numpy())
+
+            #                 break
+
+            # break   
+                    
 
                 gen_sig = np.vstack(gen_sig)
                 real_sig = np.vstack(real_sig)
