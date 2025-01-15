@@ -131,28 +131,58 @@ def gen_dataloader(args):
         ori_data = torch.Tensor(np.array(ori_data))
         train_set = Data.TensorDataset(ori_data)
 
+        print(ori_data.shape) # 10000, 24, 5
+        sys.exit()
+
     elif args.dataset in ['stock', 'energy']:
         ori_data = real_data_loading(args.dataset, args.seq_len)
         ori_data = torch.Tensor(np.array(ori_data))
         train_set = Data.TensorDataset(ori_data)
 
+        print(ori_data.shape) # 3661, 24, 6
+        # sys.exit()
+
+
     elif args.dataset in ['mujoco']:
         train_set = MujocoDataset(args.seq_len, args.dataset, args.path, 0.0)
 
-    elif args.dataset in ['solar_weekly', 'fred_md', 'nn5_daily', 'temperature_rain', 'traffic_hourly', 'kdd_cup']:
+
+    elif args.dataset in ["fmri", 'solar_weekly', 'fred_md', 'nn5_daily', 'temperature_rain', 'traffic_hourly', 'kdd_cup']: # data that need parsing 
         ori_data = parse_datasets(args.dataset, args.batch_size, args.device, args)
-        ori_data = torch.stack(ori_data)
+
+        print("orginal data :" + str(len(ori_data)))
+
+        ori_data = torch.stack(ori_data) # to -> 22, 69696, 1
+
+        print("stacked :" + str(ori_data.shape))
+
         args.seq_len = ori_data.shape[1]  # update seq_len to match the dataset
-        full_len = ori_data.shape[0]
-        randperm = torch.randperm(full_len)
+        full_len = ori_data.shape[0]    # 22
+        randperm = torch.randperm(full_len) # 22 shape random permutation
+        # print("randperm: ", randperm)
         train_data = ori_data[randperm[:int(full_len * 0.8)]]
         test_data = ori_data[randperm[int(full_len * 0.8):]]
+        # seperated train and test data
+
+ 
+        # print("training data :" + str(train_data.shape))
+
+
         train_set = Data.TensorDataset(train_data)
         test_set = Data.TensorDataset(test_data)
+
+        # all good
+
+   
+
         train_loader = Data.DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True,
                                        num_workers=args.num_workers)
         test_loader = Data.DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=True,
                                       num_workers=args.num_workers)
+        
+
+        
+
         return train_loader, test_loader
 
     elif args.dataset in ['physionet', 'climate']:
@@ -163,6 +193,11 @@ def gen_dataloader(args):
         train_data, train_loader = data_provider(args, flag='train')
         test_data, test_loader = data_provider(args, flag='test')
         return train_loader, test_loader
+    
+
+
+    
+
 
     train_loader = Data.DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True,
                                    num_workers=args.num_workers)
@@ -270,6 +305,9 @@ class MujocoDataset(torch.utils.data.Dataset):
             self.original_sample = np.array(self.original_sample)
             self.samples = np.array(self.samples)
             self.size = len(self.samples)
+
+            print("original " + str(self.original_sample.shape))
+            sys.exit()
 
     def __getitem__(self, index):
         return self.original_sample[index], self.samples[index]
